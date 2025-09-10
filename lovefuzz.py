@@ -579,6 +579,26 @@ def hexdump(data: bytes, title: str = "") -> None:
         print(f'{i:08x}: {hex_part:<48} |{ascii_part}|')
     print("-" * (10 + 48 + 3 + 16))
 
+def apply_patches(asm_content: str, no_patch: bool) -> str:
+    """
+    Applies workarounds for known da65 bugs to the disassembled output.
+    This function is a placeholder for the patching logic described in README.md.
+    Currently, no patches are applied, but this is where they would go.
+    """
+    if no_patch:
+        print("Skipping post-disassembly patching as requested.")
+        return asm_content
+
+    # The README describes patches for known bugs (e.g., DA65-SEGMENT-SCOPE).
+    # As of this version, the patch logic is not implemented. If it were,
+    # it would be applied here. For example:
+    #
+    # patched_content = re.sub(..., ..., asm_content)
+    # return patched_content
+
+    # Returning original content as no patches are currently implemented.
+    return asm_content
+
 def save_failure_artifacts(temp_dir: str, test_name: str, test_index: int):
     """Copies all artifacts from a failed test run to a persistent 'failures' directory."""
     failure_dir = os.path.join(os.getcwd(), "failures", f"failure_{test_index}_{test_name}")
@@ -702,7 +722,7 @@ def generate_da65_info_file(info_path: str, labels: dict, data_ranges: List[dict
                 
                 f.write(f'RANGE {{ START ${start_addr:04X}; END ${end_addr:04X}; TYPE {range_type}; NAME "{name}"; }};\n')
 
-def main(num_files: int, num_instructions: int, cpu_type: str, test_jmp_bug: bool, test_interactions: bool, test_advanced: bool, test_da65_info: bool, test_da65_ranges: bool, generator: InstructionGenerator, log_failures_only: bool) -> None:
+def main(num_files: int, num_instructions: int, cpu_type: str, test_jmp_bug: bool, test_interactions: bool, test_advanced: bool, test_da65_info: bool, test_da65_ranges: bool, generator: InstructionGenerator, log_failures_only: bool, no_patch: bool) -> None:
     """Main function to run the fuzzing and verification process."""
     if num_files > 0:
         print(f"Starting fuzz test for {num_files} file(s) with {num_instructions} instructions each.")
@@ -789,6 +809,9 @@ def main(num_files: int, num_instructions: int, cpu_type: str, test_jmp_bug: boo
 
             with open(disasm_path, 'r', encoding='utf-8') as f:
                 disassembled_asm_content = f.read()
+
+            # Apply patches for known bugs unless disabled
+            disassembled_asm_content = apply_patches(disassembled_asm_content, no_patch)
 
             log_buffer.append("--- DISASSEMBLED ASSEMBLY ---\n")
             log_buffer.append(disassembled_asm_content + "\n")
@@ -894,6 +917,12 @@ if __name__ == "__main__":
         default=False,
         help="Only log the details of failed test runs to the log file."
     )
+    parser.add_argument(
+        "--no-patch",
+        action="store_true",
+        default=False,
+        help="Disable the post-disassembly patch for known da65 bugs."
+    )
     args = parser.parse_args()
 
     # --test-da65-ranges implies --test-da65-info
@@ -908,4 +937,4 @@ if __name__ == "__main__":
     else: # 'random'
         generator = RandomGenerator(OPCODES)
 
-    main(args.count, args.instructions, args.cpu, args.test_jmp_bug, args.test_interactions, args.test_advanced_syntax, args.test_da65_info, args.test_da65_ranges, generator, args.log_failures_only)
+    main(args.count, args.instructions, args.cpu, args.test_jmp_bug, args.test_interactions, args.test_advanced_syntax, args.test_da65_info, args.test_da65_ranges, generator, args.log_failures_only, args.no_patch)

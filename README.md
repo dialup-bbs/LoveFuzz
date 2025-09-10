@@ -12,7 +12,7 @@ LoveFuzz is a fuzz testing suite designed to identify and analyze bugs in the `d
  
  1.  **Generate:** A random binary file of a specified size is created.
  2.  **Disassemble:** The `da65` disassembler is invoked to convert the binary file into `ca65`-compatible assembly source code. An accompanying `.info` file is generated to guide the disassembly process.
- 3.  **Patch:** A post-processing script is applied to the disassembled output. This step applies workarounds for known bugs, allowing the fuzzer to uncover new, more subtle issues that would otherwise be masked.
+ 3.  **Patch (Conditional):** A post-processing step is available to apply workarounds for known bugs to the disassembled output. This allows the fuzzer to uncover new issues that might otherwise be masked. This step can be disabled with the `--no-patch` flag. **Note:** The patching logic is currently a placeholder and does not yet apply any fixes.
  4.  **Re-assemble:** The `cl65` utility (which uses the `ca65` assembler) attempts to re-assemble the patched assembly source back into a binary.
  5.  **Verify:** If the re-assembly process fails, it indicates a bug or an incorrect heuristic in `da65`. The failing binary and its disassembled output are saved for analysis.
  
@@ -25,7 +25,7 @@ The `lovefuzz.py` script employs two primary methods to ensure the robustness of
 *   **Randomized Round-Trip Fuzzing**: This is the core of the fuzzer, implemented in the `run_test_case` function. It performs a "round-trip" test using randomly generated data:
     1.  A random binary file is generated.
     2.  The binary is disassembled by `da65`.
-    3.  The resulting assembly code is patched to mitigate known bugs.
+    3.  The resulting assembly code is passed through a conditional patching step designed to mitigate known bugs (see Methodology).
     4.  The patched assembly is re-assembled by `cl65`.
     5.  The final binary is compared byte-for-byte with the original. A mismatch or a failure during any step indicates a potential new bug, and the test case is saved for analysis.
 
@@ -33,11 +33,11 @@ The `lovefuzz.py` script employs two primary methods to ensure the robustness of
  
  This fuzzing campaign has successfully identified two distinct bugs in the `da65` disassembler. The analysis of these findings is documented in lovefuzz_analysis.json.
  
- ### Bug 1: `DA65-SEGMENT-SCOPE` (Mitigated)
+ ### Bug 1: `DA65-SEGMENT-SCOPE` (Identified)
  
  *   **Summary:** `da65` fails to correctly emit a `.segment "CODE"` directive after processing a data range (e.g., `TYPE = BYTETABLE`) specified in an `.info` file.
  *   **Root Cause & Impact:** This issue stems from `da65`'s design, which requires explicit segment boundaries in the `.info` file. The disassembler does not automatically revert to the `CODE` segment after a data range unless a new `SEGMENT` or `RANGE` directive for code immediately follows. This behavior contradicts the official `da65` documentation (section 4.5), which states that the disassembler should automatically revert. The practical impact is that subsequent instructions are incorrectly placed within a data segment (e.g., `.segment "RODATA"`), causing the `ca65` assembler to fail during re-assembly.
- *   **Status:** **Mitigated**. The fuzzer now includes a post-processing patch that heuristically inserts the missing `.segment "CODE"` directive. This mitigation was critical for allowing the fuzzer to "see past" this high-frequency bug and uncover the second, more subtle issue.
+ *   **Status:** **Identified**. A conditional patching step (`apply_patches`) has been added to the fuzzer to mitigate this issue, allowing it to find other bugs. The `--no-patch` flag can be used to disable this step and observe the original bug. **Note:** The patch implementation is currently a placeholder.
  
  ### Bug 2: `DA65-ADDR-MODE` (Exposed)
  
@@ -58,6 +58,9 @@ The `lovefuzz.py` script employs two primary methods to ensure the robustness of
  
      # Run a test with advanced syntax and data range generation
      python3 lovefuzz.py 10 --test-advanced-syntax --test-da65-ranges
+ 
+     # Run tests but disable the post-disassembly patching step
+     python3 lovefuzz.py 20 --no-patch
      ```
  3.  **Output:**
     *   A detailed log of test runs is written to `fuzz_test_log.txt`. The `--log-failures-only` flag can be used to only record failed tests.

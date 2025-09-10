@@ -36,35 +36,41 @@
     {
       "step": 6,
       "name": "Randomized Fuzzing Workflow",
+      "action": "Patch Disassembled Output (Conditional)",
+      "details": "The disassembled source code is passed through a patching function. This step is designed to apply workarounds for known `da65` bugs, allowing the fuzzer to proceed and find other issues. This step can be skipped using the '--no-patch' command-line flag. The patching logic is currently a placeholder."
+    },
+    {
+      "step": 7,
+      "name": "Randomized Fuzzing Workflow",
       "action": "Re-assemble (Pass 2)",
       "details": "The 'cl65' utility is called again to assemble the disassembled source file into a second binary program, using the same linker configuration."
     },
     {
-      "step": 7,
+      "step": 8,
       "name": "Randomized Fuzzing Workflow",
       "action": "Verify",
       "details": "A byte-for-byte comparison is performed between the initial binary and the re-assembled binary. The test is logged as SUCCESS or FAILURE. If any step in the workflow (assembly, disassembly, re-assembly, or verification) fails, the test is marked as a FAILURE, and all temporary artifacts for that run are copied to a persistent 'failures/' directory for later analysis. The logging of successful runs can be suppressed with the '--log-failures-only' flag."
     },
     {
-      "step": 8,
+      "step": 9,
       "name": "Static Test Workflow (--test-advanced-syntax)",
       "action": "Use Static Source",
       "details": "A hand-crafted assembly file, embedded in the script, is written to a temporary file. This source tests specific advanced directives like .proc, .scope, and nested conditionals."
     },
     {
-      "step": 9,
+      "step": 10,
       "name": "Static Test Workflow (--test-advanced-syntax)",
       "action": "Assemble and Link (Pass 1)",
       "details": "The 'ca65' assembler and 'ld65' linker are called directly, using a C64-specific linker configuration, to produce the initial binary."
     },
     {
-      "step": 10,
+      "step": 11,
       "name": "Static Test Workflow (--test-advanced-syntax)",
       "action": "Disassemble and Re-assemble",
       "details": "The workflow follows steps 4 and 5 of the randomized workflow, using the same tools to produce a second binary."
     },
     {
-      "step": 11,
+      "step": 12,
       "name": "Static Test Workflow (--test-advanced-syntax)",
       "action": "Verify",
       "details": "The two binaries are compared byte-for-byte to ensure consistency."
@@ -192,6 +198,10 @@
       {
         "parameter": "--log-failures-only",
         "description": "Only log the details of failed test runs to the log file."
+      },
+      {
+        "parameter": "--no-patch",
+        "description": "Disable the post-disassembly patch for known da65 bugs."
       }
     ]
   }
