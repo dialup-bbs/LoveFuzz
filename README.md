@@ -33,7 +33,7 @@ The `lovefuzz.py` script employs two primary methods to ensure the robustness of
 
  ## Findings
  
- This fuzzing campaign has successfully identified two distinct bugs in the `da65` disassembler. The analysis of these findings is documented in lovefuzz_analysis.json.
+ This fuzzing campaign has successfully identified two distinct bugs in the `da65` disassembler, with the analysis documented below.
  
  ### Bug 1: `DA65-SEGMENT-SCOPE` (Identified)
  
@@ -73,7 +73,7 @@ The `lovefuzz.py` script employs two primary methods to ensure the robustness of
  
  ## Recommendations for Future Work
  
- Based on the analysis in `lovefuzz_analysis.json`:
+ Based on the findings above:
  
  *   **File Bug Reports:** Use the generated failing test cases to file detailed bug reports with the `cc65` project maintainers. [dev note : dev will not do this, respects cc65 devs and will not clog your bug reports with potential nonsense]
      *   A report for `DA65-ADDR-MODE` should be prioritized, using one of the failing binaries as a minimal, reproducible example.
