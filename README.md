@@ -50,9 +50,18 @@ The `lovefuzz.py` script employs two primary methods to ensure the robustness of
  1.  **Prerequisites:** Ensure the `cc65` toolchain is installed and that `da65`, `cl65`, and `ca65` are in your system's `PATH`.
  2.  **Execution:** Run the fuzzer from the command line:
      ```bash
-     python3 lovefuzz.py
+     # Run 100 tests with default settings
+     python3 lovefuzz.py 100
+ 
+     # Run 500 tests, generating 200 instructions each, and only log failures
+     python3 lovefuzz.py 500 -n 200 --log-failures-only
+ 
+     # Run a test with advanced syntax and data range generation
+     python3 lovefuzz.py 10 --test-advanced-syntax --test-da65-ranges
      ```
- 3.  **Output:** The script will run a predefined number of tests. Failing test cases (the original binary, the `.info` file, and the disassembled `.s` file) will be saved in a temporary directory for analysis.
+ 3.  **Output:**
+    *   A detailed log of test runs is written to `fuzz_test_log.txt`. The `--log-failures-only` flag can be used to only record failed tests.
+    *   When a test fails, all of its artifacts (the original source, generated binaries, logs, etc.) are saved to a uniquely named subdirectory inside the `failures/` directory for persistent analysis.
  
  ## Recommendations for Future Work
  

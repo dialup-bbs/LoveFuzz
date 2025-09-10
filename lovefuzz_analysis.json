@@ -43,7 +43,7 @@
       "step": 7,
       "name": "Randomized Fuzzing Workflow",
       "action": "Verify",
-      "details": "A byte-for-byte comparison is performed between the initial binary and the re-assembled binary. The result is logged as SUCCESS or FAILURE."
+      "details": "A byte-for-byte comparison is performed between the initial binary and the re-assembled binary. The test is logged as SUCCESS or FAILURE. If any step in the workflow (assembly, disassembly, re-assembly, or verification) fails, the test is marked as a FAILURE, and all temporary artifacts for that run are copied to a persistent 'failures/' directory for later analysis. The logging of successful runs can be suppressed with the '--log-failures-only' flag."
     },
     {
       "step": 8,
@@ -104,8 +104,12 @@
       "implementation": "Dynamically generates a simple linker config for a flat memory model and invokes 'cl65' with '--no-target-lib' for randomized tests, or a C64-specific config for the static test."
     },
     "detailed_reporting": {
-      "description": "Provides comprehensive logs for debugging failures.",
-      "implementation": "Logs the original source, disassembled source, and verification result to 'fuzz_test_log.txt'. Also prints hex dumps of binaries to the console during execution for immediate feedback."
+      "description": "Provides comprehensive logs for debugging. By default, all test outcomes are logged, but the '--log-failures-only' flag can be used to create a more concise log containing only failed test cases.",
+      "implementation": "Logs the original source, disassembled source, and verification result to 'fuzz_test_log.txt'. The logging of successful runs is conditional based on the '--log-failures-only' flag. Hex dumps of binaries are always printed to the console for immediate feedback."
+    },
+    "failure_artifact_preservation": {
+      "description": "Ensures that when a bug is found, the evidence is not lost. Upon any failure (assembly, disassembly, re-assembly, or binary mismatch), the entire temporary directory for that test case is copied to a persistent './failures' directory.",
+      "implementation": "A `save_failure_artifacts` function is called from all failure points within the main test loop. It copies the contents of the temporary directory (source .s file, .cfg, .map, .info, binaries, and logs) into a uniquely named subdirectory like 'failures/failure_123_random_test_123'."
     }
   },
   "analysis_of_results": {
@@ -184,6 +188,10 @@
       {
         "parameter": "--generator",
         "description": "Selects the instruction generation strategy: 'random' for pure randomness, 'deterministic' for full coverage over a cycle, or 'hybrid' for coverage-guided fuzzing."
+      },
+      {
+        "parameter": "--log-failures-only",
+        "description": "Only log the details of failed test runs to the log file."
       }
     ]
   }
