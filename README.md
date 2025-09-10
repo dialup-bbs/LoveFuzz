@@ -31,7 +31,7 @@ The `lovefuzz.py` script employs two primary methods to ensure the robustness of
 
  ## Findings
  
- This fuzzing campaign has successfully identified two distinct bugs in the `da65` disassembler. The analysis of these findings is documented in `fuzz_tester_6502_analysis.json`.
+ This fuzzing campaign has successfully identified two distinct bugs in the `da65` disassembler. The analysis of these findings is documented in lovefuzz_analysis.json.
  
  ### Bug 1: `DA65-SEGMENT-SCOPE` (Mitigated)
  
