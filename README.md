@@ -24,6 +24,7 @@ The `lovefuzz.py` script employs two primary methods to ensure the robustness of
 *   **Static Advanced Syntax Test**: When run with the `--test-advanced-syntax` flag, the script executes a deterministic, hand-crafted test (`test_static_advanced_directives`). This test uses a static assembly source file containing complex nested directives like `.proc`, `.scope`, and `.if/.else` to verify that the toolchain can correctly handle a round-trip with these advanced features.
 
 *   **Randomized Round-Trip Fuzzing**: This is the core of the fuzzer, implemented in the `run_test_case` function. It performs a "round-trip" test using randomly generated data:
+*   **Randomized Round-Trip Fuzzing**: This is the core of the fuzzer, implemented within the main execution loop in the `main` function. It performs a "round-trip" test using randomly generated data:
     1.  A pseudo-random assembly source file is generated.
     2.  The source is assembled by `cl65` into an initial binary.
     3.  The binary is disassembled by `da65`.
