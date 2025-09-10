@@ -8,7 +8,7 @@ LoveFuzz is a fuzz testing suite designed to identify and analyze bugs in the `d
  
  ## Methodology
  
- The fuzzer, `fuzz_tester.py`, employs a round-trip testing methodology which is a highly effective way to validate the integrity of a disassembler/assembler pair. The process is as follows:
+ The fuzzer, `lovefuzz.py`, employs a round-trip testing methodology which is a highly effective way to validate the integrity of a disassembler/assembler pair. The process is as follows:
  
  1.  **Generate:** A random binary file of a specified size is created.
  2.  **Disassemble:** The `da65` disassembler is invoked to convert the binary file into `ca65`-compatible assembly source code. An accompanying `.info` file is generated to guide the disassembly process.
@@ -18,7 +18,7 @@ LoveFuzz is a fuzz testing suite designed to identify and analyze bugs in the `d
  
 ## Testing Methods
 
-The `fuzz_tester.py` script employs two primary methods to ensure the robustness of the toolchain and the fuzzer itself:
+The `lovefuzz.py` script employs two primary methods to ensure the robustness of the toolchain and the fuzzer itself:
 
 *   **Static Verification Tests**: Before the main fuzzing loop, the script executes a series of deterministic, hand-crafted tests (`test_static_segment_scope_bug` and `test_static_addr_mode_bug`). These tests target the specific known bugs to verify that the integrated Python patches work as expected. This initial check ensures that the fuzzing environment is sane and that the fuzzer can correctly "see past" known issues to find new ones.
 
@@ -50,7 +50,7 @@ The `fuzz_tester.py` script employs two primary methods to ensure the robustness
  1.  **Prerequisites:** Ensure the `cc65` toolchain is installed and that `da65`, `cl65`, and `ca65` are in your system's `PATH`.
  2.  **Execution:** Run the fuzzer from the command line:
      ```bash
-     python3 fuzz_tester.py
+     python3 lovefuzz.py
      ```
  3.  **Output:** The script will run a predefined number of tests. Failing test cases (the original binary, the `.info` file, and the disassembled `.s` file) will be saved in a temporary directory for analysis.
  
