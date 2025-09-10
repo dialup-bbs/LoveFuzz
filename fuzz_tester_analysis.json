@@ -1,0 +1,190 @@
+{
+  "script_name": "fuzz_tester.py",
+  "purpose": "To perform automated, randomized, and coverage-guided round-trip testing on the cc65 toolchain, verifying the consistency between the ca65 assembler and the da65 disassembler. The fuzzer prioritizes and specializes in the standard 6502 instruction set, while also testing a wide range of general assembly language constructs.",
+  "description": "The script's core function is to generate pseudo-random but syntactically valid assembly code focused on the standard 6502 instruction set, using various strategies (random, deterministic, hybrid). It tests these standard instructions, labels, branches, and optionally advanced assembler features like macros, procedures, scopes, conditional compilation, structs, enums, and data blocks. A key feature is its ability to generate `da65` info files with `LABEL` and `RANGE` directives to guide the disassembler. The script performs a round-trip test: it assembles the generated code, disassembles the resulting binary, and re-assembles the disassembled output. The core test is a byte-for-byte comparison of the two generated binaries. A match indicates that the assembler and disassembler are consistent. This process helps identify bugs, inconsistencies, and unexpected behaviors in the toolchain.",
+  "workflow": [
+    {
+      "step": 1,
+      "name": "Randomized Fuzzing Workflow",
+      "action": "Generate Source Code",
+      "details": "A temporary, pseudo-random but syntactically valid 6502 assembly file (.s) is created. Based on command-line flags, this can include standard instructions, labels, relative branches, and advanced features like macros, conditional assembly, structs, enums, and data blocks. The instruction selection can be purely random, deterministic for full coverage, or hybrid (coverage-guided)."
+    },
+    {
+      "step": 2,
+      "name": "Randomized Fuzzing Workflow",
+      "action": "Generate Linker Config",
+      "details": "A minimal linker configuration file (.cfg) is created, defining a single contiguous RAM block for the 'CODE' segment starting at START_ADDR."
+    },
+    {
+      "step": 3,
+      "name": "Randomized Fuzzing Workflow",
+      "action": "Assemble (Pass 1)",
+      "details": "The 'cl65' utility is called to assemble the generated source file into an initial binary program. The command uses '-t none' and '--no-target-lib' to ensure a minimal, self-contained build. If info file testing is enabled, a linker map file is also generated."
+    },
+    {
+      "step": 4,
+      "name": "Randomized Fuzzing Workflow",
+      "action": "Generate Disassembler Info File (Optional)",
+      "details": "If '--test-da65-info' or '--test-da65-ranges' is enabled, the linker map file from Pass 1 is parsed to extract label addresses. This information, along with any generated data ranges, is used to create a '.info' file for 'da65'. This file contains 'LABEL' and 'RANGE' directives that guide the disassembler, helping it to distinguish code from data and to use meaningful label names."
+    },
+    {
+      "step": 5,
+      "name": "Randomized Fuzzing Workflow",
+      "action": "Disassemble",
+      "details": "The 'da65' utility is called to disassemble the initial binary program back into a new assembly source file. The disassembler generates its own labels for branch targets."
+    },
+    {
+      "step": 6,
+      "name": "Randomized Fuzzing Workflow",
+      "action": "Re-assemble (Pass 2)",
+      "details": "The 'cl65' utility is called again to assemble the disassembled source file into a second binary program, using the same linker configuration."
+    },
+    {
+      "step": 7,
+      "name": "Randomized Fuzzing Workflow",
+      "action": "Verify",
+      "details": "A byte-for-byte comparison is performed between the initial binary and the re-assembled binary. The result is logged as SUCCESS or FAILURE."
+    },
+    {
+      "step": 8,
+      "name": "Static Test Workflow (--test-advanced-syntax)",
+      "action": "Use Static Source",
+      "details": "A hand-crafted assembly file, embedded in the script, is written to a temporary file. This source tests specific advanced directives like .proc, .scope, and nested conditionals."
+    },
+    {
+      "step": 9,
+      "name": "Static Test Workflow (--test-advanced-syntax)",
+      "action": "Assemble and Link (Pass 1)",
+      "details": "The 'ca65' assembler and 'ld65' linker are called directly, using a C64-specific linker configuration, to produce the initial binary."
+    },
+    {
+      "step": 10,
+      "name": "Static Test Workflow (--test-advanced-syntax)",
+      "action": "Disassemble and Re-assemble",
+      "details": "The workflow follows steps 4 and 5 of the randomized workflow, using the same tools to produce a second binary."
+    },
+    {
+      "step": 11,
+      "name": "Static Test Workflow (--test-advanced-syntax)",
+      "action": "Verify",
+      "details": "The two binaries are compared byte-for-byte to ensure consistency."
+    }
+  ],
+  "capabilities": {
+    "standard_6502_instruction_set_focus": {
+      "description": "The instruction generator is specifically designed to test the standard NMOS 6502 instruction set as defined in the script's `OPCODES` dictionary. While the `--cpu` flag allows testing the toolchain's behavior with other CPU variants (like 65C02), the fuzzer's own code generation is intentionally specialized on the standard 6502 instruction set to ensure its correctness is thoroughly validated.",
+      "implementation": "The `OPCODES` dictionary in `fuzz_tester.py` contains only the legal opcodes and addressing modes for the standard 6502. All instruction generator classes (`RandomGenerator`, `DeterministicCoverageGenerator`, `HybridCoverageGenerator`) draw from this dictionary."
+    },
+    "instruction_generation_strategies": {
+      "description": "Provides multiple strategies for generating test cases, selectable via the '--generator' flag.",
+      "implementation": "Uses a class-based approach with a common interface. 'RandomGenerator' selects opcodes and modes with uniform probability. 'DeterministicCoverageGenerator' ensures every opcode/mode pair is tested exactly once per cycle. 'HybridCoverageGenerator' uses a weighted random selection that prioritizes less-frequently tested instruction forms, providing intelligent, coverage-guided fuzzing."
+    },
+    "control_flow_generation": {
+      "description": "Creates complex, non-linear code by randomly inserting labels and relative branch instructions (e.g., BCC, BEQ).",
+      "implementation": "Uses the 'BRANCH_OPCODES' list and a probabilistic model to interleave labels and branches with standard instructions."
+    },
+    "edge_case_testing": {
+      "description": "Can be configured to specifically test known edge cases and complex scenarios.",
+      "implementation": "Uses command-line flags: '--test-jmp-bug' to test the 6502's indirect JMP bug, and '--test-interactions' to generate self-referencing branches and overlapping labels."
+    },
+    "advanced_syntax_testing": {
+      "description": "Tests the assembler's support for advanced features through both static and randomized tests.",
+      "implementation": "The '--test-advanced-syntax' flag enables two modes: 1) A static, hand-crafted test case that validates complex nested directives like '.proc', '.scope', and '.if/.else'. 2) Randomized generation of '.macro' definitions/calls, '.if/.else/.endif' blocks, '.struct' and '.enum' definitions, and '.tag' struct instantiations within the fuzzed code."
+    },
+    "disassembler_guidance_testing": {
+      "description": "Tests the disassembler's ability to use external information to produce a more accurate disassembly, which is critical for achieving a successful round-trip test.",
+      "implementation": "The '--test-da65-info' flag enables the generation of a '.info' file containing 'LABEL' directives, created by parsing the linker's map file. This ensures 'da65' uses the original source's label names. The '--test-da65-ranges' flag extends this by randomly generating '.byte' and '.word' data blocks and creating corresponding 'RANGE' directives in the info file. This verifies that 'da65' can correctly distinguish data from code, a common challenge in disassembly."
+    },
+    "configurable_environment": {
+      "description": "Allows the user to specify the number of test files, instructions per file, and the target CPU.",
+      "implementation": "Uses Python's 'argparse' module to handle command-line arguments: 'count', '--instructions', and '--cpu'."
+    },
+    "isolated_environment": {
+      "description": "Each test is self-contained and does not depend on system-specific libraries or complex memory maps.",
+      "implementation": "Dynamically generates a simple linker config for a flat memory model and invokes 'cl65' with '--no-target-lib' for randomized tests, or a C64-specific config for the static test."
+    },
+    "detailed_reporting": {
+      "description": "Provides comprehensive logs for debugging failures.",
+      "implementation": "Logs the original source, disassembled source, and verification result to 'fuzz_test_log.txt'. Also prints hex dumps of binaries to the console during execution for immediate feedback."
+    }
+  },
+  "analysis_of_results": {
+    "label_transformation": {
+      "observation": "The disassembled assembly code has different label names than the original source (e.g., 'L0000' becomes 'L0808').",
+      "explanation": "This is correct and expected behavior. The 'da65' disassembler, as documented in 'da65.md', has no knowledge of the original source's symbol names. It generates new labels based on the memory address of the branch target. The test's success proves that 'ca65' can correctly resolve these new address-based labels to produce an identical binary, confirming the integrity of the toolchain's logic.",
+      "conclusion": "The test is valid despite the cosmetic differences in the intermediate assembly files. The byte-for-byte comparison of the final binaries is the definitive measure of success."
+    },
+    "jmp_indirect_bug": {
+      "observation": "When using the '--test-jmp-bug' flag, the fuzzer generates `JMP ($xxFF)` instructions, which cause the assembler to fail with an error: '\"jmp (abs)\" across page border'.",
+      "explanation": "This is a deliberate safety feature of the `ca65` assembler. It recognizes that this specific instruction triggers a well-known hardware bug on the NMOS 6502 and prevents the user from generating potentially faulty code. This demonstrates that the fuzzer is correctly generating the edge case and that the assembler is behaving as expected by catching it.",
+      "conclusion": "The fuzzer successfully identified a specific assembler behavior related to a known hardware bug. The test did not reveal a bug in the toolchain, but rather a feature designed to prevent one."
+    },
+    "da65_info_file_impact": {
+      "observation": "When using '--test-da65-info' or '--test-da65-ranges', the disassembled output is significantly different and more readable. It uses original label names and correctly formats data blocks instead of trying to interpret them as code.",
+      "explanation": "This is the core purpose of the 'da65' info file. By providing hints about labels and data ranges, the fuzzer helps 'da65' avoid ambiguity. For example, without a 'RANGE' directive, a '.byte $A9,$01' would be disassembled as 'lda #$01'. With the directive, it is correctly disassembled as '.byte $A9,$01'. This capability is essential for testing the full assembler/disassembler round-trip for complex programs that mix code and data.",
+      "conclusion": "The fuzzer correctly leverages the info file feature to perform more robust and realistic testing of the toolchain, verifying a critical feature of the disassembler."
+    }
+  },
+  "limitations": [
+    "While advanced directives like `.proc` and `.scope` are now tested via a static, hand-crafted test case, they are not yet part of the randomized generation, which could uncover more complex interaction bugs.",
+    "The `random` generator may not cover all instruction combinations efficiently, a limitation addressed by the `deterministic` and `hybrid` generators.",
+    "The fuzzer currently tests only 'LABEL' and 'RANGE' directives in 'da65' info files. Other info file features like 'SEGMENT', 'ASMINC', or 'CPU' are not yet part of the fuzzing process."
+  ],
+  "dependencies": [
+    "Python 3",
+    "cc65 toolchain binaries ('cl65', 'ca65', 'ld65', 'da65') accessible in the system's PATH."
+  ],
+  "configuration": {
+    "hardcoded": [
+      {
+        "parameter": "LOG_FILE",
+        "value": "fuzz_test_log.txt",
+        "description": "The file where test results are logged."
+      },
+      {
+        "parameter": "START_ADDR",
+        "value": "0x0800",
+        "description": "The memory address where the 'CODE' segment begins for randomized tests."
+      }
+    ],
+    "runtime": [
+      {
+        "parameter": "count",
+        "description": "The number of test files to generate and process. Passed as a positional command-line argument."
+      },
+      {
+        "parameter": "--instructions",
+        "short_form": "-n",
+        "description": "The number of instructions to generate per test file. Passed as an optional command-line argument."
+      },
+      {
+        "parameter": "--cpu",
+        "description": "Specifies the target CPU for both assembly and disassembly (e.g., '6502', '65c02')."
+      },
+      {
+        "parameter": "--test-jmp-bug",
+        "description": "Enables the generation of the JMP ($xxFF) indirect jump bug edge case."
+      },
+      {
+        "parameter": "--test-interactions",
+        "description": "Enables the generation of interaction-based edge cases like self-referencing branches and overlapping labels."
+      },
+      {
+        "parameter": "--test-advanced-syntax",
+        "description": "Enables testing of advanced assembler syntax. This includes a static test for scopes/procs and randomized generation of macros, conditional blocks, structs, and enums."
+      },
+      {
+        "parameter": "--test-da65-info",
+        "description": "Enables testing of the 'da65' info file feature. The fuzzer generates a map file, parses it for labels, and creates an info file to guide the disassembler."
+      },
+      {
+        "parameter": "--test-da65-ranges",
+        "description": "Enables testing of 'da65' 'RANGE' directives for data tables. Random '.byte' and '.word' blocks are generated and described in the info file. This flag implies '--test-da65-info'."
+      },
+      {
+        "parameter": "--generator",
+        "description": "Selects the instruction generation strategy: 'random' for pure randomness, 'deterministic' for full coverage over a cycle, or 'hybrid' for coverage-guided fuzzing."
+      }
+    ]
+  }
+}
