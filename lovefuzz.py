@@ -579,6 +579,22 @@ def hexdump(data: bytes, title: str = "") -> None:
         print(f'{i:08x}: {hex_part:<48} |{ascii_part}|')
     print("-" * (10 + 48 + 3 + 16))
 
+def save_failure_artifacts(temp_dir: str, test_name: str, test_index: int):
+    """Copies all artifacts from a failed test run to a persistent 'failures' directory."""
+    failure_dir = os.path.join(os.getcwd(), "failures", f"failure_{test_index}_{test_name}")
+    print(f"!!! FAILURE DETECTED. Saving artifacts to {failure_dir}")
+
+    if not os.path.isdir(temp_dir):
+        print(f"Warning: Temporary directory {temp_dir} not found. Cannot save artifacts.", file=sys.stderr)
+        return
+
+    # Re-create the specific failure directory to ensure it's clean
+    if os.path.exists(failure_dir):
+        shutil.rmtree(failure_dir)
+    shutil.copytree(temp_dir, failure_dir)
+
+    print(f"Artifacts for {test_name} saved successfully.")
+
 def test_static_advanced_directives(cpu_type: str) -> bool:
     """
     Performs a ca65 -> da65 -> ca65 round-trip test on the static
@@ -637,7 +653,7 @@ def test_static_advanced_directives(cpu_type: str) -> bool:
                 f.write("\n")
             with open(bin1_path, 'rb') as f:
                 hexdump(f.read(), "HEX DUMP OF ORIGINAL")
-            with open(bin2_path, 'rb') as f: # Corrected variable name
+            with open(bin2_path, 'rb') as f:
                 hexdump(f.read(), "HEX DUMP OF RE-ASSEMBLED")
             return False
 
@@ -686,7 +702,7 @@ def generate_da65_info_file(info_path: str, labels: dict, data_ranges: List[dict
                 
                 f.write(f'RANGE {{ START ${start_addr:04X}; END ${end_addr:04X}; TYPE {range_type}; NAME "{name}"; }};\n')
 
-def main(num_files: int, num_instructions: int, cpu_type: str, test_jmp_bug: bool, test_interactions: bool, test_advanced: bool, test_da65_info: bool, test_da65_ranges: bool, generator: InstructionGenerator) -> None:
+def main(num_files: int, num_instructions: int, cpu_type: str, test_jmp_bug: bool, test_interactions: bool, test_advanced: bool, test_da65_info: bool, test_da65_ranges: bool, generator: InstructionGenerator, log_failures_only: bool) -> None:
     """Main function to run the fuzzing and verification process."""
     if num_files > 0:
         print(f"Starting fuzz test for {num_files} file(s) with {num_instructions} instructions each.")
@@ -732,11 +748,11 @@ def main(num_files: int, num_instructions: int, cpu_type: str, test_jmp_bug: boo
             with open(orig_asm_path, 'r', encoding='utf-8') as f:
                 original_asm_content = f.read()
 
-            with open(LOG_FILE, 'a', encoding='utf-8') as f:
-                f.write(f"---- TEST {i+1}: {test_name} ----\n")
-                f.write("--- ORIGINAL ASSEMBLY ---\n")
-                f.write(original_asm_content)
-                f.write("\n")
+            # Buffer log content for this test run
+            log_buffer = []
+            log_buffer.append(f"---- TEST {i+1}: {test_name} ----\n")
+            log_buffer.append("--- ORIGINAL ASSEMBLY ---\n")
+            log_buffer.append(original_asm_content + "\n")
 
             create_linker_config(cfg_path)
 
@@ -748,8 +764,8 @@ def main(num_files: int, num_instructions: int, cpu_type: str, test_jmp_bug: boo
             print(f"Assembling {orig_asm_path}...")
             result = run_command(cl65_cmd + ["-o", orig_prg_path, orig_asm_path])
             if not result:
-                print("Assembly failed. Skipping test.")
-                # Consider logging the failure reason here
+                print("Assembly failed. Saving artifacts and skipping test.")
+                save_failure_artifacts(temp_dir, test_name, i)
                 continue
 
             with open(orig_prg_path, 'rb') as f:
@@ -767,22 +783,20 @@ def main(num_files: int, num_instructions: int, cpu_type: str, test_jmp_bug: boo
             print(f"Disassembling {orig_prg_path}...")
             result = run_command(da65_cmd)
             if not result:
-                print("Disassembly failed. Skipping test.")
+                print("Disassembly failed. Saving artifacts and skipping test.")
+                save_failure_artifacts(temp_dir, test_name, i)
                 continue
 
             with open(disasm_path, 'r', encoding='utf-8') as f:
                 disassembled_asm_content = f.read()
 
-            with open(LOG_FILE, 'a', encoding='utf-8') as f:
-                f.write("--- DISASSEMBLED ASSEMBLY ---\n")
-                f.write(disassembled_asm_content)
-                f.write("\n")
-
+            log_buffer.append("--- DISASSEMBLED ASSEMBLY ---\n")
+            log_buffer.append(disassembled_asm_content + "\n")
             print(f"Re-assembling {disasm_path}...")
             result = run_command(cl65_cmd + ["-o", reasm_prg_path, disasm_path])
             if not result:
-                print("Re-assembly failed. Skipping test.")
-                # Consider logging the failure reason here
+                print("Re-assembly failed. Saving artifacts and skipping test.")
+                save_failure_artifacts(temp_dir, test_name, i)
                 continue
 
             with open(reasm_prg_path, 'rb') as f:
@@ -797,9 +811,12 @@ def main(num_files: int, num_instructions: int, cpu_type: str, test_jmp_bug: boo
             else:
                 print(">>> FAILURE: Binaries DO NOT match!")
                 result_str = "FAILURE"
+                save_failure_artifacts(temp_dir, test_name, i)
 
-            with open(LOG_FILE, 'a', encoding='utf-8') as f:
-                f.write(f"--- RESULT: {result_str} ---\n\n")
+            log_buffer.append(f"--- RESULT: {result_str} ---\n\n")
+            if not log_failures_only or result_str == "FAILURE":
+                with open(LOG_FILE, 'a', encoding='utf-8') as f:
+                    f.write("".join(log_buffer))
 
     print("\n" + "="*20 + " OVERALL RESULTS " + "="*20)
     print(f"Tests passed: {success_count}/{total_tests}")
@@ -871,6 +888,12 @@ if __name__ == "__main__":
         default='random',
         help="The instruction generation strategy to use. (default: random)"
     )
+    parser.add_argument(
+        "--log-failures-only",
+        action="store_true",
+        default=False,
+        help="Only log the details of failed test runs to the log file."
+    )
     args = parser.parse_args()
 
     # --test-da65-ranges implies --test-da65-info
@@ -885,4 +908,4 @@ if __name__ == "__main__":
     else: # 'random'
         generator = RandomGenerator(OPCODES)
 
-    main(args.count, args.instructions, args.cpu, args.test_jmp_bug, args.test_interactions, args.test_advanced_syntax, args.test_da65_info, args.test_da65_ranges, generator)
+    main(args.count, args.instructions, args.cpu, args.test_jmp_bug, args.test_interactions, args.test_advanced_syntax, args.test_da65_info, args.test_da65_ranges, generator, args.log_failures_only)
