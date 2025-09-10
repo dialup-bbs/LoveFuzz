@@ -10,24 +10,26 @@ LoveFuzz is a fuzz testing suite designed to identify and analyze bugs in the `d
  
  The fuzzer, `lovefuzz.py`, employs a round-trip testing methodology which is a highly effective way to validate the integrity of a disassembler/assembler pair. The process is as follows:
  
- 1.  **Generate:** A random binary file of a specified size is created.
- 2.  **Disassemble:** The `da65` disassembler is invoked to convert the binary file into `ca65`-compatible assembly source code. An accompanying `.info` file is generated to guide the disassembly process.
- 3.  **Patch (Conditional):** A post-processing step is available to apply workarounds for known bugs to the disassembled output. This allows the fuzzer to uncover new issues that might otherwise be masked. This step can be disabled with the `--no-patch` flag. **Note:** The patching logic is currently a placeholder and does not yet apply any fixes.
- 4.  **Re-assemble:** The `cl65` utility (which uses the `ca65` assembler) attempts to re-assemble the patched assembly source back into a binary.
- 5.  **Verify:** If the re-assembly process fails, it indicates a bug or an incorrect heuristic in `da65`. The failing binary and its disassembled output are saved for analysis.
+ 1.  **Generate Source:** A pseudo-random, but syntactically valid, assembly source file (`.s`) is created.
+ 2.  **Assemble (Pass 1):** The `cl65` utility assembles the source code into an initial binary program.
+ 3.  **Disassemble:** The `da65` disassembler is invoked to convert the binary back into assembly source code. Optionally, an `.info` file can be generated to guide this process.
+ 4.  **Patch (Conditional):** A post-processing step is available to apply workarounds for known bugs to the disassembled output. This allows the fuzzer to uncover new issues that might otherwise be masked. This step can be disabled with the `--no-patch` flag. **Note:** The patching logic is currently a placeholder and does not yet apply any fixes.
+ 5.  **Re-assemble (Pass 2):** The `cl65` utility attempts to re-assemble the patched assembly source back into a second binary.
+ 6.  **Verify:** The initial binary and the re-assembled binary are compared byte-for-byte. A mismatch or a failure during any step indicates a bug, and the failing test case is saved for analysis.
  
 ## Testing Methods
 
 The `lovefuzz.py` script employs two primary methods to ensure the robustness of the toolchain and the fuzzer itself:
 
-*   **Static Verification Tests**: Before the main fuzzing loop, the script executes a series of deterministic, hand-crafted tests (`test_static_segment_scope_bug` and `test_static_addr_mode_bug`). These tests target the specific known bugs to verify that the integrated Python patches work as expected. This initial check ensures that the fuzzing environment is sane and that the fuzzer can correctly "see past" known issues to find new ones.
+*   **Static Advanced Syntax Test**: When run with the `--test-advanced-syntax` flag, the script executes a deterministic, hand-crafted test (`test_static_advanced_directives`). This test uses a static assembly source file containing complex nested directives like `.proc`, `.scope`, and `.if/.else` to verify that the toolchain can correctly handle a round-trip with these advanced features.
 
 *   **Randomized Round-Trip Fuzzing**: This is the core of the fuzzer, implemented in the `run_test_case` function. It performs a "round-trip" test using randomly generated data:
-    1.  A random binary file is generated.
-    2.  The binary is disassembled by `da65`.
-    3.  The resulting assembly code is passed through a conditional patching step designed to mitigate known bugs (see Methodology).
-    4.  The patched assembly is re-assembled by `cl65`.
-    5.  The final binary is compared byte-for-byte with the original. A mismatch or a failure during any step indicates a potential new bug, and the test case is saved for analysis.
+    1.  A pseudo-random assembly source file is generated.
+    2.  The source is assembled by `cl65` into an initial binary.
+    3.  The binary is disassembled by `da65`.
+    4.  The resulting assembly code is passed through a conditional patching step designed to mitigate known bugs (see Methodology).
+    5.  The patched assembly is re-assembled by `cl65`.
+    6.  The final binary is compared byte-for-byte with the original. A mismatch or a failure during any step indicates a potential new bug, and the test case is saved for analysis.
 
  ## Findings
  
