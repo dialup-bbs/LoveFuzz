@@ -1,5 +1,5 @@
 {
-  "script_name": "fuzz_tester.py",
+  "script_name": "lovefuzz.py",
   "purpose": "To perform automated, randomized, and coverage-guided round-trip testing on the cc65 toolchain, verifying the consistency between the ca65 assembler and the da65 disassembler. The fuzzer prioritizes and specializes in the standard 6502 instruction set, while also testing a wide range of general assembly language constructs.",
   "description": "The script's core function is to generate pseudo-random but syntactically valid assembly code focused on the standard 6502 instruction set, using various strategies (random, deterministic, hybrid). It tests these standard instructions, labels, branches, and optionally advanced assembler features like macros, procedures, scopes, conditional compilation, structs, enums, and data blocks. A key feature is its ability to generate `da65` info files with `LABEL` and `RANGE` directives to guide the disassembler. The script performs a round-trip test: it assembles the generated code, disassembles the resulting binary, and re-assembles the disassembled output. The core test is a byte-for-byte comparison of the two generated binaries. A match indicates that the assembler and disassembler are consistent. This process helps identify bugs, inconsistencies, and unexpected behaviors in the toolchain.",
   "workflow": [
