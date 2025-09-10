@@ -111,7 +111,7 @@
     },
     "detailed_reporting": {
       "description": "Provides comprehensive logs for debugging. By default, all test outcomes are logged, but the '--log-failures-only' flag can be used to create a more concise log containing only failed test cases.",
-      "implementation": "Logs the original source, disassembled source, and verification result to 'fuzz_test_log.txt'. The logging of successful runs is conditional based on the '--log-failures-only' flag. Hex dumps of binaries are always printed to the console for immediate feedback."
+      "implementation": "Logs the original source, disassembled source, and verification result to 'fuzz_test_log.txt'. The logging of successful runs is conditional based on the '--log-failures-only' flag. By default, full hex dumps of binaries are printed to the console for immediate feedback, but this can be suppressed with the '--brief' flag for a more concise output."
     },
     "failure_artifact_preservation": {
       "description": "Ensures that when a bug is found, the evidence is not lost. Upon any failure (assembly, disassembly, re-assembly, or binary mismatch), the entire temporary directory for that test case is copied to a persistent './failures' directory.",
@@ -160,7 +160,7 @@
     "runtime": [
       {
         "parameter": "count",
-        "description": "The number of test files to generate and process. Passed as a positional command-line argument."
+        "description": "The number of tests to run, or the number of failures to collect if --collect-failures is used. Passed as a positional command-line argument."
       },
       {
         "parameter": "--instructions",
@@ -202,6 +202,14 @@
       {
         "parameter": "--no-patch",
         "description": "Disable the post-disassembly patch for known da65 bugs."
+      },
+      {
+        "parameter": "--collect-failures",
+        "description": "Run tests indefinitely until 'count' number of failures have been collected."
+      },
+      {
+        "parameter": "--brief",
+        "description": "Show brief, single-line results in the terminal instead of full hexdumps."
       }
     ]
   }

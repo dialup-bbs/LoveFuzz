@@ -61,6 +61,9 @@ The `lovefuzz.py` script employs two primary methods to ensure the robustness of
  
      # Run tests but disable the post-disassembly patching step
      python3 lovefuzz.py 20 --no-patch
+ 
+     # Run indefinitely until 5 failures are found, using brief terminal output
+     python3 lovefuzz.py 5 --collect-failures --brief
      ```
  3.  **Output:**
     *   A detailed log of test runs is written to `fuzz_test_log.txt`. The `--log-failures-only` flag can be used to only record failed tests.
