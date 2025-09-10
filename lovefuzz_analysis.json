@@ -79,7 +79,7 @@
   "capabilities": {
     "standard_6502_instruction_set_focus": {
       "description": "The instruction generator is specifically designed to test the standard NMOS 6502 instruction set as defined in the script's `OPCODES` dictionary. While the `--cpu` flag allows testing the toolchain's behavior with other CPU variants (like 65C02), the fuzzer's own code generation is intentionally specialized on the standard 6502 instruction set to ensure its correctness is thoroughly validated.",
-      "implementation": "The `OPCODES` dictionary in `fuzz_tester.py` contains only the legal opcodes and addressing modes for the standard 6502. All instruction generator classes (`RandomGenerator`, `DeterministicCoverageGenerator`, `HybridCoverageGenerator`) draw from this dictionary."
+      "implementation": "The `OPCODES` dictionary in `lovefuzz.py` contains only the legal opcodes and addressing modes for the standard 6502. All instruction generator classes (`RandomGenerator`, `DeterministicCoverageGenerator`, `HybridCoverageGenerator`) draw from this dictionary."
     },
     "instruction_generation_strategies": {
       "description": "Provides multiple strategies for generating test cases, selectable via the '--generator' flag.",
