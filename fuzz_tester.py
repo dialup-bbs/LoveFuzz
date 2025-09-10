@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A fuzz tester for the cc65 toolchain (ca65/da65)."""
+"""LoveFuzz - A fuzz tester for the cc65 toolchain (ca65/da65)."""
 
 import argparse
 import subprocess
