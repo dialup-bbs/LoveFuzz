@@ -43,7 +43,7 @@ The `lovefuzz.py` script employs two primary methods to ensure the robustness of
  
  *   **Summary:** `da65` incorrectly guesses the addressing mode for certain ambiguous 6502 opcodes.
  *   **Impact:** The 6502 instruction set has opcodes that are used for multiple addressing modes (e.g., zeropage vs. absolute). `da65` must use heuristics to guess the correct mode. The fuzzer has generated numerous binaries where `da65` makes the wrong guess. For example, it might disassemble a zeropage instruction as an absolute one. When `ca65` attempts to re-assemble this output, it encounters a mismatch between the opcode and the operand size, resulting in a `Range error (Address size 2 does not match fragment size 1)`.
- *   **Status:** **Exposed**. The fuzzer now consistently generates 375 failing test cases that trigger this specific error, providing a valuable corpus for debugging `da65`'s static analysis logic.
+ *   **Status:** **Exposed**. The fuzzer now consistently generates multiple test cases that trigger this specific error, providing a valuable corpus for debugging `da65`'s static analysis logic.
  
  ## How to Run
  
@@ -56,9 +56,9 @@ The `lovefuzz.py` script employs two primary methods to ensure the robustness of
  
  ## Recommendations for Future Work
  
- Based on the analysis in `fuzz_tester_6502_analysis.json`:
+ Based on the analysis in `lovefuzz_analysis.json`:
  
- *   **File Bug Reports:** Use the generated failing test cases to file detailed bug reports with the `cc65` project maintainers. [dev note : dev will not do this or clog your bug reports with potential nonsense]
+ *   **File Bug Reports:** Use the generated failing test cases to file detailed bug reports with the `cc65` project maintainers. [dev note : dev will not do this, respects cc65 devs and will not clog your bug reports with potential nonsense]
      *   A report for `DA65-ADDR-MODE` should be prioritized, using one of the failing binaries as a minimal, reproducible example.
  *   **Enhance Fuzzer:** The fuzzer could be modified to specifically target ambiguous 6502 opcodes to generate more varied and targeted test cases for the `DA65-ADDR-MODE` bug.
  *   **Continue Fuzzing:** Continue running the fuzzer with the existing patch to identify any other potential bugs that may have been masked by the two known issues.
