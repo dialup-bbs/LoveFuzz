@@ -115,7 +115,7 @@
     },
     "failure_artifact_preservation": {
       "description": "Ensures that when a test is collected, the evidence is not lost. Upon any failure (assembly, disassembly, re-assembly, or binary mismatch), the entire temporary directory for that test case is copied to a persistent './failed' directory. If `--collect-passed` is used, successful test artifacts are copied to a './passed/' directory.",
-      "implementation": "A generic `save_artifacts` function is called from all failure points within the main test loop. It copies the contents of the temporary directory (source .s file, .cfg, .map, .info, binaries, and logs) into a uniquely named subdirectory like 'failed/failed_123_random_test_123' or 'passed/passed_123_random_test_123'."
+      "implementation": "A generic `save_artifacts` function is called at the end of each test case, inside the temporary directory context. It copies artifacts based on the test's outcome (failed or passed) and the active collection flags (`--collect-failed`, `--collect-passed`). It copies the contents of the temporary directory (source .s file, .cfg, .map, .info, binaries, and logs) into a uniquely named subdirectory like 'failed/failed_123_random_test_123' or 'passed/passed_123_random_test_123'."
     }
   },
   "analysis_of_results": {
@@ -230,10 +230,6 @@
       {
         "parameter": "--clear-log-passed",
         "description": "Removes fuzz_test_log.txt and deletes all files in the 'passed' folder."
-      },
-      {
-        "parameter": "--brief",
-        "description": "Show brief, single-line results in the terminal instead of full hexdumps."
       }
     ]
   }

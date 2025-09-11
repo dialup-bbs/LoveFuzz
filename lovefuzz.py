@@ -747,10 +747,14 @@ def main(num_files: int, num_instructions: int, cpu_type: str, test_jmp_bug: boo
             print("Using random generator.")
 
 
-    # Clear log file
-    with open(LOG_FILE, 'w', encoding='utf-8') as f:
-        f.write("cc65 Assembler/Disassembler Fuzz Test Log\n")
-        f.write("=" * 40 + "\n\n")
+    # Prepare log file
+    # Ensure log is appended to, not overwritten, unless a clear flag is used.
+    # Write a header if the file is new or empty.
+    is_new_log = not os.path.exists(LOG_FILE) or os.path.getsize(LOG_FILE) == 0
+    with open(LOG_FILE, 'a', encoding='utf-8') as f:
+        if is_new_log:
+            f.write("cc65 Assembler/Disassembler Fuzz Test Log\n")
+            f.write("=" * 40 + "\n\n")
 
     success_count = 0
     static_total = 0
@@ -807,7 +811,6 @@ def main(num_files: int, num_instructions: int, cpu_type: str, test_jmp_bug: boo
                 print(f"Assembling {orig_asm_path}...")
                 if not run_command(cl65_cmd + ["-o", orig_prg_path, orig_asm_path]):
                     print("Assembly failed.")
-                    save_artifacts(temp_dir, test_name, tests_run, "failed")
                     iteration_failed = True
 
                 if not iteration_failed:
@@ -828,7 +831,6 @@ def main(num_files: int, num_instructions: int, cpu_type: str, test_jmp_bug: boo
                     print(f"Disassembling {orig_prg_path}...")
                     if not run_command(da65_cmd):
                         print("Disassembly failed.")
-                        save_artifacts(temp_dir, test_name, tests_run, "failed")
                         iteration_failed = True
 
                 if not iteration_failed:
@@ -840,7 +842,6 @@ def main(num_files: int, num_instructions: int, cpu_type: str, test_jmp_bug: boo
                     print(f"Re-assembling {disasm_path}...")
                     if not run_command(cl65_cmd + ["-o", reasm_prg_path, disasm_path]):
                         print("Re-assembly failed.")
-                        save_artifacts(temp_dir, test_name, tests_run, "failed")
                         iteration_failed = True
 
                 if not iteration_failed:
@@ -858,7 +859,6 @@ def main(num_files: int, num_instructions: int, cpu_type: str, test_jmp_bug: boo
                     else:
                         print(">>> FAILED: Binaries DO NOT match!")
                         result_str = "FAILED"
-                        save_artifacts(temp_dir, test_name, tests_run, "failed")
                         iteration_failed = True
                 else:
                     result_str = "FAILED"
@@ -869,14 +869,19 @@ def main(num_files: int, num_instructions: int, cpu_type: str, test_jmp_bug: boo
                    (log_passed_only and result_str == "SUCCESS"):
                     with open(LOG_FILE, 'a', encoding='utf-8') as f:
                         f.write("".join(log_buffer))
+                
+                if iteration_failed:
+                    failed_collected += 1
+                    # Save failed artifacts if we are collecting them, or if we are in a normal run.
+                    # Do not save them if we are exclusively collecting passed tests.
+                    if collect_failed or not collect_passed:
+                        save_artifacts(temp_dir, test_name, tests_run, "failed")
+                else:
+                    passed_collected += 1
+                    if collect_passed:
+                        # Passed tests are only saved when explicitly collecting them
+                        save_artifacts(temp_dir, test_name, tests_run, "passed")
 
-            if iteration_failed:
-                failed_collected += 1
-            else:
-                passed_collected += 1
-                if collect_passed:
-                    # Passed tests are only saved when explicitly collecting them
-                    save_artifacts(temp_dir, test_name, tests_run, "passed")
             tests_run += 1
 
     # Final summary calculation
@@ -1037,7 +1042,7 @@ if __name__ == "__main__":
             if os.path.isdir(failed_dir):
                 try:
                     shutil.rmtree(failed_dir)
-                    print(f"Removed failed directory: {failed_dir}")
+                    print("Removed failed directory.")
                 except OSError as e:
                     print(f"Error removing failed directory {failed_dir}: {e}", file=sys.stderr)
 
@@ -1047,7 +1052,7 @@ if __name__ == "__main__":
             if os.path.isdir(passed_dir):
                 try:
                     shutil.rmtree(passed_dir)
-                    print(f"Removed passed directory: {passed_dir}")
+                    print("Removed passed directory.")
                 except OSError as e:
                     print(f"Error removing passed directory {passed_dir}: {e}", file=sys.stderr)
         print("--- Cleanup complete ---\n")
