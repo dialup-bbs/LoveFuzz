@@ -110,7 +110,7 @@
       "implementation": "Dynamically generates a simple linker config for a flat memory model and invokes 'cl65' with '--no-target-lib' for randomized tests, or a C64-specific config for the static test."
     },
     "detailed_reporting": {
-      "description": "Provides comprehensive logs for debugging. By default, all test outcomes are logged, but the '--log-failures-only' flag can be used to create a more concise log containing only failed test cases.",
+      "description": "Provides comprehensive logs for debugging. By default, all test outcomes are logged, but the '--log-failed-only' flag can be used to create a more concise log containing only failed test cases.",
       "implementation": "Logs the original source, disassembled source, and verification result to 'fuzz_test_log.txt'. The logging is conditional based on the '--log-failed-only' and '--log-passed-only' flags. By default, full hex dumps of binaries are printed to the console for immediate feedback, but this can be suppressed with the '--brief' flag for a more concise output."
     },
     "failure_artifact_preservation": {
