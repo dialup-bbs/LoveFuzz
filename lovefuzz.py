@@ -599,26 +599,28 @@ def apply_patches(asm_content: str, no_patch: bool) -> str:
     # Returning original content as no patches are currently implemented.
     return asm_content
 
-def save_failure_artifacts(temp_dir: str, test_name: str, test_index: int):
-    """Copies all artifacts from a failed test run to a persistent 'failures' directory."""
-    failure_dir = os.path.join(os.getcwd(), "failures", f"failure_{test_index}_{test_name}")
-    print(f"!!! FAILURE DETECTED. Saving artifacts to {failure_dir}")
+def save_artifacts(temp_dir: str, test_name: str, test_index: int, status: str):
+    """Copies all artifacts from a test run to a persistent directory based on status."""
+    dest_parent_dir = os.path.join(os.getcwd(), status)  # status is 'failed' or 'passed'
+    dest_dir = os.path.join(dest_parent_dir, f"{status}_{test_index}_{test_name}")
+    print(f"!!! {status.upper()} TEST COLLECTED. Saving artifacts to {dest_dir}")
 
     if not os.path.isdir(temp_dir):
         print(f"Warning: Temporary directory {temp_dir} not found. Cannot save artifacts.", file=sys.stderr)
         return
 
-    # Re-create the specific failure directory to ensure it's clean
-    if os.path.exists(failure_dir):
-        shutil.rmtree(failure_dir)
-    shutil.copytree(temp_dir, failure_dir)
+    # Ensure parent directory exists and re-create the specific destination directory
+    os.makedirs(dest_parent_dir, exist_ok=True)
+    if os.path.exists(dest_dir):
+        shutil.rmtree(dest_dir)
+    shutil.copytree(temp_dir, dest_dir)
 
     print(f"Artifacts for {test_name} saved successfully.")
 
 def test_static_advanced_directives(cpu_type: str, brief: bool) -> bool:
     """
     Performs a ca65 -> da65 -> ca65 round-trip test on the static
-    advanced directives assembly file.
+    advanced directives assembly file. This test does not save artifacts on failure.
     Returns True on success, False on failure.
     """
     print("\n===== Running Static Advanced Directives Test =====")
@@ -662,9 +664,9 @@ def test_static_advanced_directives(cpu_type: str, brief: bool) -> bool:
             print(">>> SUCCESS: Binaries for static advanced test match!")
             return True
         else:
-            print(">>> FAILURE: Binaries for static advanced test DO NOT match!")
+            print(">>> FAILED: Binaries for static advanced test DO NOT match!")
             with open(LOG_FILE, 'a', encoding='utf-8') as f:
-                f.write("---- STATIC ADVANCED TEST FAILURE ----\n")
+                f.write("---- STATIC ADVANCED TEST FAILED ----\n")
                 f.write("--- ORIGINAL ASSEMBLY ---\n")
                 f.write(ADVANCED_SYNTAX_TEST_SOURCE)
                 f.write("\n--- DISASSEMBLED ASSEMBLY ---\n")
@@ -725,11 +727,13 @@ def generate_da65_info_file(info_path: str, labels: dict, data_ranges: List[dict
                 
                 f.write(f'RANGE {{ START ${start_addr:04X}; END ${end_addr:04X}; TYPE {range_type}; NAME "{name}"; }};\n')
 
-def main(num_files: int, num_instructions: int, cpu_type: str, test_jmp_bug: bool, test_interactions: bool, test_advanced: bool, test_da65_info: bool, test_da65_ranges: bool, generator: InstructionGenerator, log_failures_only: bool, no_patch: bool, collect_failures: bool, brief: bool) -> None:
+def main(num_files: int, num_instructions: int, cpu_type: str, test_jmp_bug: bool, test_interactions: bool, test_advanced: bool, test_da65_info: bool, test_da65_ranges: bool, generator: InstructionGenerator, log_failed_only: bool, log_passed_only: bool, no_patch: bool, collect_failed: bool, collect_passed: bool, brief: bool) -> None:
     """Main function to run the fuzzing and verification process."""
     if num_files > 0:
-        if collect_failures:
-            print(f"Starting fuzz test to collect {num_files} failure(s).")
+        if collect_failed:
+            print(f"Starting fuzz test to collect {num_files} failed test(s).")
+        elif collect_passed:
+            print(f"Starting fuzz test to collect {num_files} passed test(s).")
         else:
             print(f"Starting fuzz test for {num_files} file(s) with {num_instructions} instructions each.")
         print(f"Logging to {LOG_FILE}")
@@ -757,14 +761,19 @@ def main(num_files: int, num_instructions: int, cpu_type: str, test_jmp_bug: boo
 
     # Main fuzzing loop
     tests_run = 0
-    failures_collected = 0
+    failed_collected = 0
+    passed_collected = 0
     if num_files > 0:
         while True:
             # Check termination conditions
-            if collect_failures:
-                if failures_collected >= num_files:
+            if collect_failed:
+                if failed_collected >= num_files:
                     break
-                header = f"Running Test {tests_run + 1} (collecting failure {failures_collected + 1}/{num_files})"
+                header = f"Running Test {tests_run + 1} (collecting failed test {failed_collected + 1}/{num_files})"
+            elif collect_passed:
+                if passed_collected >= num_files:
+                    break
+                header = f"Running Test {tests_run + 1} (collecting passed test {passed_collected + 1}/{num_files})"
             else: # count mode
                 if tests_run >= num_files:
                     break
@@ -797,8 +806,8 @@ def main(num_files: int, num_instructions: int, cpu_type: str, test_jmp_bug: boo
 
                 print(f"Assembling {orig_asm_path}...")
                 if not run_command(cl65_cmd + ["-o", orig_prg_path, orig_asm_path]):
-                    print("Assembly failed. Saving artifacts.")
-                    save_failure_artifacts(temp_dir, test_name, tests_run)
+                    print("Assembly failed.")
+                    save_artifacts(temp_dir, test_name, tests_run, "failed")
                     iteration_failed = True
 
                 if not iteration_failed:
@@ -818,8 +827,8 @@ def main(num_files: int, num_instructions: int, cpu_type: str, test_jmp_bug: boo
 
                     print(f"Disassembling {orig_prg_path}...")
                     if not run_command(da65_cmd):
-                        print("Disassembly failed. Saving artifacts.")
-                        save_failure_artifacts(temp_dir, test_name, tests_run)
+                        print("Disassembly failed.")
+                        save_artifacts(temp_dir, test_name, tests_run, "failed")
                         iteration_failed = True
 
                 if not iteration_failed:
@@ -830,8 +839,8 @@ def main(num_files: int, num_instructions: int, cpu_type: str, test_jmp_bug: boo
 
                     print(f"Re-assembling {disasm_path}...")
                     if not run_command(cl65_cmd + ["-o", reasm_prg_path, disasm_path]):
-                        print("Re-assembly failed. Saving artifacts.")
-                        save_failure_artifacts(temp_dir, test_name, tests_run)
+                        print("Re-assembly failed.")
+                        save_artifacts(temp_dir, test_name, tests_run, "failed")
                         iteration_failed = True
 
                 if not iteration_failed:
@@ -847,27 +856,31 @@ def main(num_files: int, num_instructions: int, cpu_type: str, test_jmp_bug: boo
                         print(">>> SUCCESS: Binaries match!")
                         result_str = "SUCCESS"
                     else:
-                        print(">>> FAILURE: Binaries DO NOT match!")
-                        result_str = "FAILURE"
-                        save_failure_artifacts(temp_dir, test_name, tests_run)
+                        print(">>> FAILED: Binaries DO NOT match!")
+                        result_str = "FAILED"
+                        save_artifacts(temp_dir, test_name, tests_run, "failed")
                         iteration_failed = True
                 else:
-                    result_str = "FAILURE"
+                    result_str = "FAILED"
 
                 log_buffer.append(f"--- RESULT: {result_str} ---\n\n")
-                if not log_failures_only or result_str == "FAILURE":
+                if (not log_failed_only and not log_passed_only) or \
+                   (log_failed_only and result_str == "FAILED") or \
+                   (log_passed_only and result_str == "SUCCESS"):
                     with open(LOG_FILE, 'a', encoding='utf-8') as f:
                         f.write("".join(log_buffer))
 
             if iteration_failed:
-                failures_collected += 1
+                failed_collected += 1
+            else:
+                passed_collected += 1
+                if collect_passed:
+                    # Passed tests are only saved when explicitly collecting them
+                    save_artifacts(temp_dir, test_name, tests_run, "passed")
             tests_run += 1
 
     # Final summary calculation
-    if collect_failures:
-        fuzz_successes = tests_run - failures_collected
-    else:
-        fuzz_successes = tests_run - failures_collected
+    fuzz_successes = passed_collected
 
     total_tests = tests_run + static_total
     success_count += fuzz_successes
@@ -891,8 +904,10 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "count",
+        nargs='?',
         type=int,
-        help="The number of tests to run, or the number of failures to collect if --collect-failures is used."
+        default=0,
+        help="The number of tests to run, or the number of tests to collect if a collection flag is used. (default: 0)"
     )
     parser.add_argument(
         "-n", "--instructions",
@@ -942,11 +957,18 @@ if __name__ == "__main__":
         default='random',
         help="The instruction generation strategy to use. (default: random)"
     )
-    parser.add_argument(
-        "--log-failures-only",
+    log_group = parser.add_mutually_exclusive_group()
+    log_group.add_argument(
+        "--log-failed-only",
         action="store_true",
         default=False,
-        help="Only log the details of failed test runs to the log file."
+        help="Only log the details of FAILED test runs to the log file."
+    )
+    log_group.add_argument(
+        "--log-passed-only",
+        action="store_true",
+        default=False,
+        help="Only log details of passed test runs to the log file."
     )
     parser.add_argument(
         "--no-patch",
@@ -954,11 +976,18 @@ if __name__ == "__main__":
         default=False,
         help="Disable the post-disassembly patch for known da65 bugs."
     )
-    parser.add_argument(
-        "--collect-failures",
+    collect_group = parser.add_mutually_exclusive_group()
+    collect_group.add_argument(
+        "--collect-failed",
         action="store_true",
         default=False,
-        help="Run tests indefinitely until 'count' number of failures have been collected."
+        help="Run tests indefinitely until 'count' number of failed tests have been collected."
+    )
+    collect_group.add_argument(
+        "--collect-passed",
+        action="store_true",
+        default=False,
+        help="Run tests indefinitely until 'count' number of passed tests have been collected."
     )
     parser.add_argument(
         "--brief",
@@ -966,7 +995,62 @@ if __name__ == "__main__":
         default=False,
         help="Show brief, single-line results in the terminal instead of full hexdumps."
     )
+    parser.add_argument(
+        "--clear-log-all",
+        action="store_true",
+        default=False,
+        help="Removes fuzz_test_log.txt and deletes all files in the 'failed' and 'passed' folders."
+    )
+    parser.add_argument(
+        "--clear-log-failed",
+        action="store_true",
+        default=False,
+        help="Removes fuzz_test_log.txt and deletes all files in the 'failed' folder."
+    )
+    parser.add_argument(
+        "--clear-log-passed",
+        action="store_true",
+        default=False,
+        help="Removes fuzz_test_log.txt and deletes all files in the 'passed' folder."
+    )
     args = parser.parse_args()
+
+    # Handle cleanup flags
+    if args.clear_log_all or args.clear_log_failed or args.clear_log_passed:
+        print("--- Clearing logs and artifacts ---")
+
+        # Determine which directories to clear
+        clear_failed = args.clear_log_all or args.clear_log_failed
+        clear_passed = args.clear_log_all or args.clear_log_passed
+
+        # Clear log file
+        if os.path.exists(LOG_FILE):
+            try:
+                os.remove(LOG_FILE)
+                print(f"Removed log file: {LOG_FILE}")
+            except OSError as e:
+                print(f"Error removing log file {LOG_FILE}: {e}", file=sys.stderr)
+
+        # Clear 'failed' directory
+        if clear_failed:
+            failed_dir = "failed"
+            if os.path.isdir(failed_dir):
+                try:
+                    shutil.rmtree(failed_dir)
+                    print(f"Removed failed directory: {failed_dir}")
+                except OSError as e:
+                    print(f"Error removing failed directory {failed_dir}: {e}", file=sys.stderr)
+
+        # Clear 'passed' directory
+        if clear_passed:
+            passed_dir = "passed"
+            if os.path.isdir(passed_dir):
+                try:
+                    shutil.rmtree(passed_dir)
+                    print(f"Removed passed directory: {passed_dir}")
+                except OSError as e:
+                    print(f"Error removing passed directory {passed_dir}: {e}", file=sys.stderr)
+        print("--- Cleanup complete ---\n")
 
     # --test-da65-ranges implies --test-da65-info
     if args.test_da65_ranges:
@@ -980,4 +1064,4 @@ if __name__ == "__main__":
     else: # 'random'
         generator = RandomGenerator(OPCODES)
 
-    main(args.count, args.instructions, args.cpu, args.test_jmp_bug, args.test_interactions, args.test_advanced_syntax, args.test_da65_info, args.test_da65_ranges, generator, args.log_failures_only, args.no_patch, args.collect_failures, args.brief)
+    main(args.count, args.instructions, args.cpu, args.test_jmp_bug, args.test_interactions, args.test_advanced_syntax, args.test_da65_info, args.test_da65_ranges, generator, args.log_failed_only, args.log_passed_only, args.no_patch, args.collect_failed, args.collect_passed, args.brief)

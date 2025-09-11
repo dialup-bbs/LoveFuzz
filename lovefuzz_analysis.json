@@ -49,7 +49,7 @@
       "step": 8,
       "name": "Randomized Fuzzing Workflow",
       "action": "Verify",
-      "details": "A byte-for-byte comparison is performed between the initial binary and the re-assembled binary. The test is logged as SUCCESS or FAILURE. If any step in the workflow (assembly, disassembly, re-assembly, or verification) fails, the test is marked as a FAILURE, and all temporary artifacts for that run are copied to a persistent 'failures/' directory for later analysis. The logging of successful runs can be suppressed with the '--log-failures-only' flag."
+      "details": "A byte-for-byte comparison is performed between the initial binary and the re-assembled binary. The test is logged as SUCCESS or FAILED. If any step in the workflow fails, the test is marked as FAILED, and all temporary artifacts for that run are copied to a persistent 'failed/' directory for later analysis. If collecting passed tests, artifacts are copied to a 'passed/' directory. The logging can be filtered with '--log-failed-only' or '--log-passed-only'."
     },
     {
       "step": 9,
@@ -111,11 +111,11 @@
     },
     "detailed_reporting": {
       "description": "Provides comprehensive logs for debugging. By default, all test outcomes are logged, but the '--log-failures-only' flag can be used to create a more concise log containing only failed test cases.",
-      "implementation": "Logs the original source, disassembled source, and verification result to 'fuzz_test_log.txt'. The logging of successful runs is conditional based on the '--log-failures-only' flag. By default, full hex dumps of binaries are printed to the console for immediate feedback, but this can be suppressed with the '--brief' flag for a more concise output."
+      "implementation": "Logs the original source, disassembled source, and verification result to 'fuzz_test_log.txt'. The logging is conditional based on the '--log-failed-only' and '--log-passed-only' flags. By default, full hex dumps of binaries are printed to the console for immediate feedback, but this can be suppressed with the '--brief' flag for a more concise output."
     },
     "failure_artifact_preservation": {
-      "description": "Ensures that when a bug is found, the evidence is not lost. Upon any failure (assembly, disassembly, re-assembly, or binary mismatch), the entire temporary directory for that test case is copied to a persistent './failures' directory.",
-      "implementation": "A `save_failure_artifacts` function is called from all failure points within the main test loop. It copies the contents of the temporary directory (source .s file, .cfg, .map, .info, binaries, and logs) into a uniquely named subdirectory like 'failures/failure_123_random_test_123'."
+      "description": "Ensures that when a test is collected, the evidence is not lost. Upon any failure (assembly, disassembly, re-assembly, or binary mismatch), the entire temporary directory for that test case is copied to a persistent './failed' directory. If `--collect-passed` is used, successful test artifacts are copied to a './passed/' directory.",
+      "implementation": "A generic `save_artifacts` function is called from all failure points within the main test loop. It copies the contents of the temporary directory (source .s file, .cfg, .map, .info, binaries, and logs) into a uniquely named subdirectory like 'failed/failed_123_random_test_123' or 'passed/passed_123_random_test_123'."
     }
   },
   "analysis_of_results": {
@@ -160,7 +160,7 @@
     "runtime": [
       {
         "parameter": "count",
-        "description": "The number of tests to run, or the number of failures to collect if --collect-failures is used. Passed as a positional command-line argument."
+        "description": "The number of tests to run, or the number of tests to collect if a collection flag is used. Passed as an optional positional command-line argument. (default: 0)"
       },
       {
         "parameter": "--instructions",
@@ -196,16 +196,40 @@
         "description": "Selects the instruction generation strategy: 'random' for pure randomness, 'deterministic' for full coverage over a cycle, or 'hybrid' for coverage-guided fuzzing."
       },
       {
-        "parameter": "--log-failures-only",
-        "description": "Only log the details of failed test runs to the log file."
+        "parameter": "--log-failed-only",
+        "description": "Only log the details of FAILED test runs to the log file."
+      },
+      {
+        "parameter": "--log-passed-only",
+        "description": "Only log details of passed test runs to the log file."
       },
       {
         "parameter": "--no-patch",
         "description": "Disable the post-disassembly patch for known da65 bugs."
       },
       {
-        "parameter": "--collect-failures",
-        "description": "Run tests indefinitely until 'count' number of failures have been collected."
+        "parameter": "--collect-failed",
+        "description": "Run tests indefinitely until 'count' number of failed tests have been collected."
+      },
+      {
+        "parameter": "--collect-passed",
+        "description": "Run tests indefinitely until 'count' number of passed tests have been collected."
+      },
+      {
+        "parameter": "--brief",
+        "description": "Show brief, single-line results in the terminal instead of full hexdumps."
+      },
+      {
+        "parameter": "--clear-log-all",
+        "description": "Removes fuzz_test_log.txt and deletes all files in the 'failed' and 'passed' folders."
+      },
+      {
+        "parameter": "--clear-log-failed",
+        "description": "Removes fuzz_test_log.txt and deletes all files in the 'failed' folder."
+      },
+      {
+        "parameter": "--clear-log-passed",
+        "description": "Removes fuzz_test_log.txt and deletes all files in the 'passed' folder."
       },
       {
         "parameter": "--brief",
